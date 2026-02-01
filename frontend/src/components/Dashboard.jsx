@@ -495,12 +495,17 @@ const IST_TZ = 'Asia/Kolkata';
 
 function parseAgeDate(ageStr) {
   if (!ageStr || typeof ageStr !== 'string') return null;
-  const trimmed = String(ageStr).trim();
+  let trimmed = String(ageStr).trim();
   if (!trimmed) return null;
-  const iso = trimmed.replace(/\s+(\d{1,2}):(\d{2}):(\d{2})$/, 'T$1:$2:$3Z');
-  let d = new Date(iso);
+  trimmed = trimmed.replace(/\s*\(IST\)\s*$/i, '').trim();
+  let d = new Date(trimmed);
   if (!isNaN(d.getTime())) return d;
-  d = new Date(trimmed);
+  const isoMatch = trimmed.match(/\s+(\d{1,2}):(\d{2}):(\d{2})\s*$/);
+  if (isoMatch) {
+    d = new Date(trimmed.replace(/\s+(\d{1,2}):(\d{2}):(\d{2})\s*$/, 'T$1:$2:$3Z'));
+    if (!isNaN(d.getTime())) return d;
+  }
+  d = new Date(trimmed + ' UTC');
   return isNaN(d.getTime()) ? null : d;
 }
 
