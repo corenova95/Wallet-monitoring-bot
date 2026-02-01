@@ -4,10 +4,6 @@ import { addOrUpdateWallet, addOrUpdateWalletBNB, addOrUpdateWalletTron, addOrUp
 import { addBotToRunning, removeBotFromRunning } from '../services/runningBotsStore.js';
 import { startSubscription as startSolanaSubscription, stopSubscription as stopSolanaSubscription } from '../services/solanaSubscriptionManager.js';
 
-function wasBotRunning(bot) {
-  return Boolean(bot?.isRunning);
-}
-
 const router = express.Router();
 
 const CHAIN_KEYS = ['walletEthereum', 'walletSolana', 'walletBnb', 'walletBitcoin', 'walletLitecoin', 'walletTron'];
@@ -81,7 +77,6 @@ router.patch('/:id', async (req, res) => {
     const { name, discordWebhookUrl, ...wallets } = req.body || {};
     const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot not found' });
-    const keepRunning = wasBotRunning(bot);
     const oldSolana = trimAddr(bot.walletSolana);
     if (name != null) bot.name = String(name).trim();
     if (discordWebhookUrl !== undefined) bot.discordWebhookUrl = typeof discordWebhookUrl === 'string' ? discordWebhookUrl.trim() : '';
@@ -91,9 +86,10 @@ router.patch('/:id', async (req, res) => {
     if (wallets.walletBitcoin != null) bot.walletBitcoin = trimAddr(wallets.walletBitcoin) || '';
     if (wallets.walletLitecoin != null) bot.walletLitecoin = trimAddr(wallets.walletLitecoin) || '';
     if (wallets.walletTron != null) bot.walletTron = trimAddr(wallets.walletTron) || '';
+    // When you change a bot, always stop it (user must click Run again)
     removeBotFromRunning(bot._id);
     if (oldSolana) stopSolanaSubscription(oldSolana);
-    bot.isRunning = keepRunning;
+    bot.isRunning = false;
     await bot.save();
     const ethAddr = getEthereumAddress(bot);
     if (ethAddr) await addOrUpdateWallet(ethAddr).catch(() => {});
@@ -107,10 +103,6 @@ router.patch('/:id', async (req, res) => {
     if (ltcAddr) await addOrUpdateWalletLtc(ltcAddr).catch(() => {});
     const solAddr = trimAddr(bot.walletSolana);
     if (solAddr) await addOrUpdateWalletSol(solAddr).catch(() => {});
-    if (keepRunning) {
-      addBotToRunning(bot.toObject ? bot.toObject() : bot);
-      if (solAddr) startSolanaSubscription(solAddr);
-    }
     res.json(await Bot.findById(req.params.id));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -150,6 +142,8 @@ router.post('/:id/stop', async (req, res) => {
     const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot not found' });
     removeBotFromRunning(bot._id);
+    const solAddr = trimAddr(bot.walletSolana);
+    if (solAddr) stopSolanaSubscription(solAddr);
     bot.isRunning = false;
     await bot.save();
     res.json(bot);

@@ -63,8 +63,11 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Real-time: refresh running bots (interval + delay between chains to avoid 429)
+// Refresh: ETH/BNB at REFRESH_INTERVAL_MS; Tron 2s (refer/tron.js); BTC/LTC 10s (refer/btc.js, refer/ltc.js)
 const REFRESH_INTERVAL_MS = parseInt(process.env.REFRESH_INTERVAL_MS, 10) || 10_000;
+const TRON_REFRESH_INTERVAL_MS = parseInt(process.env.TRON_REFRESH_INTERVAL_MS, 10) || 2_000;
+const BTC_REFRESH_INTERVAL_MS = parseInt(process.env.BTC_REFRESH_INTERVAL_MS, 10) || 10_000;
+const LTC_REFRESH_INTERVAL_MS = parseInt(process.env.LTC_REFRESH_INTERVAL_MS, 10) || 10_000;
 const CHAIN_DELAY_MS = parseInt(process.env.CHAIN_DELAY_MS, 10) || 400;
 
 function delay(ms) {
@@ -117,6 +120,21 @@ setInterval(async () => {
         }
         await delay(CHAIN_DELAY_MS);
       }
+      // Tron: separate 2s loop below; BTC/LTC: separate 10s loops (like refer/btc.js, refer/ltc.js)
+      // Solana: WebSocket in solanaSubscriptionManager
+    }
+  } catch (e) {
+    console.warn('[Bot refresh loop]', e.message);
+  }
+}, REFRESH_INTERVAL_MS);
+console.log(`Bot monitor: refresh from RAM every ${REFRESH_INTERVAL_MS / 1000}s when running (chain delay ${CHAIN_DELAY_MS}ms)`);
+
+// Tron only: every 2s (like refer/tron.js)
+setInterval(async () => {
+  try {
+    const running = getRunningConfigs();
+    if (running.length === 0) return;
+    for (const b of running) {
       const tronAddr = getBotTronAddress(b);
       if (tronAddr) {
         try {
@@ -126,6 +144,19 @@ setInterval(async () => {
         }
         await delay(CHAIN_DELAY_MS);
       }
+    }
+  } catch (e) {
+    console.warn('[Bot refresh TRON loop]', e.message);
+  }
+}, TRON_REFRESH_INTERVAL_MS);
+console.log(`Bot monitor: TRON only every ${TRON_REFRESH_INTERVAL_MS / 1000}s`);
+
+// BTC only: every 10s (like refer/btc.js)
+setInterval(async () => {
+  try {
+    const running = getRunningConfigs();
+    if (running.length === 0) return;
+    for (const b of running) {
       const btcAddr = getBotBtcAddress(b);
       if (btcAddr) {
         try {
@@ -135,6 +166,19 @@ setInterval(async () => {
         }
         await delay(CHAIN_DELAY_MS);
       }
+    }
+  } catch (e) {
+    console.warn('[Bot refresh BTC loop]', e.message);
+  }
+}, BTC_REFRESH_INTERVAL_MS);
+console.log(`Bot monitor: BTC only every ${BTC_REFRESH_INTERVAL_MS / 1000}s`);
+
+// LTC only: every 10s (like refer/ltc.js)
+setInterval(async () => {
+  try {
+    const running = getRunningConfigs();
+    if (running.length === 0) return;
+    for (const b of running) {
       const ltcAddr = getBotLtcAddress(b);
       if (ltcAddr) {
         try {
@@ -144,13 +188,12 @@ setInterval(async () => {
         }
         await delay(CHAIN_DELAY_MS);
       }
-      // Solana: WebSocket in solanaSubscriptionManager + fallback poll below
     }
   } catch (e) {
-    console.warn('[Bot refresh loop]', e.message);
+    console.warn('[Bot refresh LTC loop]', e.message);
   }
-}, REFRESH_INTERVAL_MS);
-console.log(`Bot monitor: refresh from RAM every ${REFRESH_INTERVAL_MS / 1000}s when running (chain delay ${CHAIN_DELAY_MS}ms)`);
+}, LTC_REFRESH_INTERVAL_MS);
+console.log(`Bot monitor: LTC only every ${LTC_REFRESH_INTERVAL_MS / 1000}s`);
 
 // Re-fetch all wallets at interval from .env (minutes)
 const intervalMinutes = parseInt(process.env.FETCH_INTERVAL_MINUTES, 10) || 30;
