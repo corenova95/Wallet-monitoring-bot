@@ -218,12 +218,14 @@ function buildEmbedTron(tx) {
 }
 
 // --- Ethereum / BNB (current unified format; no refer script) ---
+// tx already has .token from the new transaction we found (save DB + send Discord use same tx object; no DB read).
 function buildEmbedEthereumOrBnb(tx) {
   const walletType = (tx.walletType || 'Ethereum').trim();
   const isBnb = walletType === 'BNB';
   const chainLabel = isBnb ? 'BNB' : 'ETH';
   const chainName = isBnb ? 'BNB' : 'Ethereum';
   const chainIcon = isBnb ? '🟡' : '💎';
+  const tokenName = (tx.token && String(tx.token).trim()) || chainLabel;
   const explorerBase = isBnb ? 'https://bscscan.com/tx' : 'https://etherscan.io/tx';
   const txUrl = `${explorerBase}/${tx.transactionHash || ''}`;
   const explorerName = isBnb ? 'BscScan' : 'Etherscan';
@@ -238,7 +240,7 @@ function buildEmbedEthereumOrBnb(tx) {
   const title = `${chainIcon} ${chainName} · ${flowIcon} ${typeText}`;
   const description = [
     `${flowIcon} Type: ${typeText}`,
-    `🏛️ Asset: ${chainIcon} ${chainName} (${chainLabel})`,
+    `🏛️ Asset: ${chainIcon} ${chainName} (${tokenName})`,
     `🔢 Amount: ${amountVal}`,
     `💲 USD Value: ${usdVal}`,
     `🕒 Time: ${timeVal}`,
@@ -247,7 +249,7 @@ function buildEmbedEthereumOrBnb(tx) {
     `🔗 Transaction: [View on ${explorerName}](${txUrl})`,
   ].join('\n');
   const color = isBnb ? 0xF0B90B : 0x627EEA;
-  return { title, description, color, footer: { text: `${chainIcon} ${chainLabel} Transaction Monitor` }, timestamp: new Date().toISOString() };
+  return { title, description, color, footer: { text: `${chainIcon} ${tokenName} Transaction Monitor` }, timestamp: new Date().toISOString() };
 }
 
 function buildTransactionEmbed(tx) {
