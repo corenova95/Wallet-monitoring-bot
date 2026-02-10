@@ -1,11 +1,12 @@
 /**
  * In-memory store for running bots. Data is loaded from DB only when user clicks RUN.
- * Used for: refresh loop (get transactions) and Discord alerts (webhook URL).
+ * Used for: refresh loop (get transactions), Discord/Telegram alerts.
  * Edit bot → stop bot and remove from RAM. RUN → load from DB into RAM.
  */
 
 const runningByBotId = new Map();
 const webhookByWalletKey = new Map();
+const telegramByWalletKey = new Map();
 
 function walletKey(walletType, address) {
   if (!address) return null;
@@ -26,7 +27,10 @@ function clearWebhooksForBot(config) {
   for (const { type, addr } of types) {
     if (!addr) continue;
     const key = walletKey(type, addr);
-    if (key) webhookByWalletKey.delete(key);
+    if (key) {
+      webhookByWalletKey.delete(key);
+      telegramByWalletKey.delete(key);
+    }
   }
 }
 
@@ -36,6 +40,8 @@ function clearWebhooksForBot(config) {
 export function addBotToRunning(bot) {
   const id = bot._id?.toString();
   if (!id) return;
+  const telegramToken = (bot.telegramBotToken || '').trim();
+  const telegramChatId = (bot.telegramChatId || '').trim();
   const config = {
     _id: bot._id,
     walletEthereum: (bot.walletEthereum || '').trim() || (bot.walletAddress || '').trim(),
@@ -46,17 +52,28 @@ export function addBotToRunning(bot) {
     walletLitecoin: (bot.walletLitecoin || '').trim(),
     walletSolana: (bot.walletSolana || '').trim(),
     discordWebhookUrl: (bot.discordWebhookUrl || '').trim(),
+    telegramBotToken: telegramToken,
+    telegramChatId: telegramChatId,
   };
   removeBotFromRunning(id);
   runningByBotId.set(id, config);
   const webhook = config.discordWebhookUrl;
-  if (webhook) {
-    if (config.walletEthereum) webhookByWalletKey.set(walletKey('Ethereum', config.walletEthereum), webhook);
-    if (config.walletBnb) webhookByWalletKey.set(walletKey('BNB', config.walletBnb), webhook);
-    if (config.walletTron) webhookByWalletKey.set(walletKey('Tron', config.walletTron), webhook);
-    if (config.walletBitcoin) webhookByWalletKey.set(walletKey('Bitcoin', config.walletBitcoin), webhook);
-    if (config.walletLitecoin) webhookByWalletKey.set(walletKey('Litecoin', config.walletLitecoin), webhook);
-    if (config.walletSolana) webhookByWalletKey.set(walletKey('Solana', config.walletSolana), webhook);
+  const telegram = telegramToken && telegramChatId ? { token: telegramToken, chatId: telegramChatId } : null;
+  const types = [
+    { type: 'Ethereum', addr: config.walletEthereum },
+    { type: 'BNB', addr: config.walletBnb },
+    { type: 'Tron', addr: config.walletTron },
+    { type: 'Bitcoin', addr: config.walletBitcoin },
+    { type: 'Litecoin', addr: config.walletLitecoin },
+    { type: 'Solana', addr: config.walletSolana },
+  ];
+  for (const { type, addr } of types) {
+    if (!addr) continue;
+    const key = walletKey(type, addr);
+    if (key) {
+      if (webhook) webhookByWalletKey.set(key, webhook);
+      if (telegram) telegramByWalletKey.set(key, telegram);
+    }
   }
 }
 
@@ -88,3 +105,13 @@ export function getWebhookForWallet(walletType, normalizedAddress) {
   const key = walletKey(walletType, normalizedAddress);
   return key ? webhookByWalletKey.get(key) || null : null;
 }
+
+/**
+ * Get Telegram config { token, chatId } for a wallet (from RAM).
+ */
+export function getTelegramForWallet(walletType, normalizedAddress) {
+  if (!normalizedAddress) return null;
+  const key = walletKey(walletType, normalizedAddress);
+  return key ? telegramByWalletKey.get(key) || null : null;
+}
+

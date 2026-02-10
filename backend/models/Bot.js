@@ -13,6 +13,8 @@ const botSchema = new mongoose.Schema({
   // legacy: single wallet (treated as Ethereum)
   walletAddress: { type: String, trim: true, default: '' },
   discordWebhookUrl: { type: String, trim: true, default: '' },
+  telegramBotToken: { type: String, trim: true, default: '' },
+  telegramChatId: { type: String, trim: true, default: '' },
 }, { timestamps: true });
 
 export default mongoose.model('Bot', botSchema);

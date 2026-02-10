@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, discordWebhookUrl, ...wallets } = req.body || {};
+    const { name, discordWebhookUrl, telegramBotToken, telegramChatId, ...wallets } = req.body || {};
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'Bot name is required' });
     }
@@ -51,6 +51,8 @@ router.post('/', async (req, res) => {
       walletLitecoin: trimAddr(wallets.walletLitecoin) || '',
       walletTron: trimAddr(wallets.walletTron) || '',
       discordWebhookUrl: typeof discordWebhookUrl === 'string' ? discordWebhookUrl.trim() : '',
+      telegramBotToken: typeof telegramBotToken === 'string' ? telegramBotToken.trim() : '',
+      telegramChatId: typeof telegramChatId === 'string' ? telegramChatId.trim() : '',
     };
     const bot = new Bot(doc);
     await bot.save();
@@ -74,12 +76,14 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
-    const { name, discordWebhookUrl, ...wallets } = req.body || {};
+    const { name, discordWebhookUrl, telegramBotToken, telegramChatId, ...wallets } = req.body || {};
     const bot = await Bot.findById(req.params.id);
     if (!bot) return res.status(404).json({ error: 'Bot not found' });
     const oldSolana = trimAddr(bot.walletSolana);
     if (name != null) bot.name = String(name).trim();
     if (discordWebhookUrl !== undefined) bot.discordWebhookUrl = typeof discordWebhookUrl === 'string' ? discordWebhookUrl.trim() : '';
+    if (telegramBotToken !== undefined) bot.telegramBotToken = typeof telegramBotToken === 'string' ? telegramBotToken.trim() : '';
+    if (telegramChatId !== undefined) bot.telegramChatId = typeof telegramChatId === 'string' ? telegramChatId.trim() : '';
     if (wallets.walletEthereum != null) bot.walletEthereum = trimAddr(wallets.walletEthereum) || '';
     if (wallets.walletSolana != null) bot.walletSolana = trimAddr(wallets.walletSolana) || '';
     if (wallets.walletBnb != null) bot.walletBnb = trimAddr(wallets.walletBnb) || '';

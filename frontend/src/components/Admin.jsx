@@ -106,6 +106,8 @@ export default function Admin({ onSelectWallet }) {
   const [editId, setEditId] = useState(null);
   const [name, setName] = useState('');
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
   const [wallets, setWallets] = useState(emptyWallets());
   const [selectedBotId, setSelectedBotId] = useState('');
   const [botWallets, setBotWallets] = useState({});
@@ -168,6 +170,8 @@ export default function Admin({ onSelectWallet }) {
     setEditId(null);
     setName('');
     setDiscordWebhookUrl('');
+    setTelegramBotToken('');
+    setTelegramChatId('');
     setWallets(emptyWallets());
     setError('');
     setModalOpen(true);
@@ -178,6 +182,8 @@ export default function Admin({ onSelectWallet }) {
     setEditId(bot._id);
     setName(bot.name);
     setDiscordWebhookUrl(bot.discordWebhookUrl || '');
+    setTelegramBotToken(bot.telegramBotToken || '');
+    setTelegramChatId(bot.telegramChatId || '');
     setWallets({
       walletEthereum: bot.walletEthereum || bot.walletAddress || '',
       walletSolana: bot.walletSolana || '',
@@ -195,6 +201,8 @@ export default function Admin({ onSelectWallet }) {
     setEditId(null);
     setName('');
     setDiscordWebhookUrl('');
+    setTelegramBotToken('');
+    setTelegramChatId('');
     setWallets(emptyWallets());
   };
 
@@ -207,7 +215,13 @@ export default function Admin({ onSelectWallet }) {
     }
     setLoading(true);
     try {
-      const payload = { name: name.trim(), discordWebhookUrl: discordWebhookUrl.trim(), ...Object.fromEntries(CHAINS.map((c) => [c.key, (wallets[c.key] || '').trim()])) };
+      const payload = {
+        name: name.trim(),
+        discordWebhookUrl: discordWebhookUrl.trim(),
+        telegramBotToken: telegramBotToken.trim(),
+        telegramChatId: telegramChatId.trim(),
+        ...Object.fromEntries(CHAINS.map((c) => [c.key, (wallets[c.key] || '').trim()])),
+      };
       if (modalMode === 'create') {
         const res = await fetch(API, {
           method: 'POST',
@@ -379,6 +393,14 @@ export default function Admin({ onSelectWallet }) {
                 <div className="form-group">
                   <label className="form-label">Discord webhook URL (alerts for new transactions)</label>
                   <input type="url" className="form-input mono" placeholder="https://discord.com/api/webhooks/..." value={discordWebhookUrl} onChange={(e) => setDiscordWebhookUrl(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Telegram bot token (from @BotFather)</label>
+                  <input type="text" className="form-input mono" placeholder="123456:ABC-DEF..." value={telegramBotToken} onChange={(e) => setTelegramBotToken(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Telegram chat ID (e.g. -1001234567890 or your user id)</label>
+                  <input type="text" className="form-input mono" placeholder="-1001234567890" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value)} />
                 </div>
                 {CHAINS.map((c) => (
                   <div key={c.key} className="form-group form-group-with-icon">

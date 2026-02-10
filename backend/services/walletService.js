@@ -1,6 +1,6 @@
 import Wallet from '../models/Wallet.js';
 import Transaction from '../models/Transaction.js';
-import { getWebhookForWallet } from './runningBotsStore.js';
+import { getWebhookForWallet, getTelegramForWallet } from './runningBotsStore.js';
 import { fetchAndParseAllTransactions } from './etherscanParser.js';
 import { fetchAndParseAllTransactions as fetchAndParseAllTransactionsBNB } from './bscscanParser.js';
 import { fetchAndParseTronWallet } from './tronService.js';
@@ -8,6 +8,7 @@ import { fetchAndParseBtcWallet } from './btcService.js';
 import { fetchAndParseLtcWallet } from './ltcService.js';
 import { fetchAndParseSolWallet } from './solService.js';
 import { sendTransactionAlertsBatch } from './discordService.js';
+import { sendTransactionAlertsBatch as sendTelegramAlertsBatch } from './telegramService.js';
 
 function walletTypeToTxType(walletType) {
   const w = String(walletType || '').trim().toLowerCase();
@@ -84,11 +85,20 @@ export async function saveTransactions(transactions, normalized, walletType = 'E
 export async function notifyDiscordNewTransactions(normalized, walletType, newTransactions) {
   if (!newTransactions || newTransactions.length === 0) return;
   const webhookUrl = getWebhookForWallet(walletType, normalized);
-  if (!webhookUrl) return;
-  try {
-    await sendTransactionAlertsBatch(webhookUrl, newTransactions);
-  } catch (e) {
-    console.warn('[Discord alert]', webhookUrl.slice(0, 50) + '...', e.message);
+  if (webhookUrl) {
+    try {
+      await sendTransactionAlertsBatch(webhookUrl, newTransactions);
+    } catch (e) {
+      console.warn('[Discord alert]', webhookUrl.slice(0, 50) + '...', e.message);
+    }
+  }
+  const telegram = getTelegramForWallet(walletType, normalized);
+  if (telegram?.token && telegram?.chatId) {
+    try {
+      await sendTelegramAlertsBatch(telegram.token, telegram.chatId, newTransactions);
+    } catch (e) {
+      console.warn('[Telegram alert]', telegram.chatId, e.message);
+    }
   }
 }
 
