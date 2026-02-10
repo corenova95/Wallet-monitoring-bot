@@ -69,6 +69,7 @@ const BNB_REFRESH_INTERVAL_MS = parseInt(process.env.BNB_REFRESH_INTERVAL_MS, 10
 const TRON_REFRESH_INTERVAL_MS = parseInt(process.env.TRON_REFRESH_INTERVAL_MS, 10) || 2_000;
 const BTC_REFRESH_INTERVAL_MS = parseInt(process.env.BTC_REFRESH_INTERVAL_MS, 10) || 20_000;
 const LTC_REFRESH_INTERVAL_MS = parseInt(process.env.LTC_REFRESH_INTERVAL_MS, 10) || 10_000;
+const SOL_REFRESH_INTERVAL_MS = parseInt(process.env.SOL_REFRESH_INTERVAL_MS, 10) || 15_000;
 const CHAIN_DELAY_MS = parseInt(process.env.CHAIN_DELAY_MS, 10) || 400;
 
 function delay(ms) {
@@ -207,6 +208,28 @@ setInterval(async () => {
   }
 }, LTC_REFRESH_INTERVAL_MS);
 console.log(`Bot monitor: LTC only every ${LTC_REFRESH_INTERVAL_MS / 1000}s`);
+
+// Solana only (scraping; no WebSocket)
+setInterval(async () => {
+  try {
+    const running = getRunningConfigs();
+    if (running.length === 0) return;
+    for (const b of running) {
+      const solAddr = getBotSolAddress(b);
+      if (solAddr) {
+        try {
+          await refreshWallet(solAddr, 'SOL');
+        } catch (e) {
+          console.warn('[Bot refresh SOL]', solAddr.slice(0, 10) + '...', e.message);
+        }
+        await delay(CHAIN_DELAY_MS);
+      }
+    }
+  } catch (e) {
+    console.warn('[Bot refresh SOL loop]', e.message);
+  }
+}, SOL_REFRESH_INTERVAL_MS);
+console.log(`Bot monitor: SOL every ${SOL_REFRESH_INTERVAL_MS / 1000}s`);
 
 // Re-fetch all wallets at interval from .env (minutes)
 const intervalMinutes = parseInt(process.env.FETCH_INTERVAL_MINUTES, 10) || 30;
