@@ -1,31 +1,83 @@
 /**
  * Tron address data via Tronscan HTML scraping only (no API/RPC).
- * On 403 or fetch error returns empty balance and transactions so the app does not spam logs.
+ * Uses headless Selenium (Chrome) to avoid 403 scraping detection; falls back to empty result on error.
  */
-import axios from 'axios';
+import { Builder, Browser, By, until } from 'selenium-webdriver';
+import chrome from 'selenium-webdriver/chrome.js';
 import * as cheerio from 'cheerio';
 import { getTrxUsd } from './priceService.js';
 import { toAgeStringIST } from '../utils/dateIST.js';
 
 const BASE = process.env.TRONSCAN_BASE || 'https://tronscan.org';
 
-const AXIOS_OPTS = {
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': `${BASE}/`,
-    'Origin': BASE,
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'same-origin',
-  },
-  timeout: 15000,
-  validateStatus: (s) => s === 200 || s === 404,
-  maxRedirects: 5,
-};
+/** Lazy headless Chrome driver; one fetch at a time via mutex. */
+let _driver = null;
+let _driverPromise = null;
+let _fetchMutex = Promise.resolve();
+
+async function getDriver() {
+  if (_driver) return _driver;
+  if (_driverPromise) return _driverPromise;
+  const options = new chrome.Options()
+    .addArguments(
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--window-size=1920,1080',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-infobars',
+      '--lang=en-US'
+    )
+    .windowSize({ width: 1920, height: 1080 });
+  _driverPromise = new Builder()
+    .forBrowser(Browser.CHROME)
+    .setChromeOptions(options)
+    .build();
+  _driver = await _driverPromise;
+  return _driver;
+}
+
+/** Call when shutting down (e.g. tests) so the process can exit. */
+export async function closeTronBrowser() {
+  if (_driver) {
+    try {
+      await _driver.quit();
+    } catch (_) {}
+    _driver = null;
+    _driverPromise = null;
+  }
+}
+
+async function withFetchMutex(fn) {
+  const waitFor = _fetchMutex;
+  let resolve;
+  _fetchMutex = new Promise((r) => { resolve = r; });
+  await waitFor;
+  try {
+    return await fn();
+  } finally {
+    resolve();
+  }
+}
+
+/**
+ * Fetch Tronscan address page HTML using headless Chrome (avoids 403 from direct HTTP).
+ */
+async function fetchAddressPageWithBrowser(address) {
+  return withFetchMutex(async () => {
+    const driver = await getDriver();
+    const base = BASE.replace(/\/$/, '');
+    const url = `${base}/address/${encodeURIComponent(address)}`;
+    await driver.get(url);
+    await driver.wait(
+      until.elementLocated(By.xpath("//*[contains(., 'TRX') or contains(., 'Balance') or contains(., 'Transaction')]")),
+      15000
+    ).catch(() => null);
+    await new Promise((r) => setTimeout(r, 4000));
+    return await driver.getPageSource();
+  });
+}
 
 function emptyTronResult() {
   return {
@@ -35,19 +87,6 @@ function emptyTronResult() {
     tokenTransactions: [],
     maxBlockTimestamp: null,
   };
-}
-
-export async function fetchAddressPage(address) {
-  const base = BASE.replace(/\/$/, '');
-  const addr = encodeURIComponent(address);
-  let url = `${base}/address/${addr}`;
-  let res = await axios.get(url, { ...AXIOS_OPTS, validateStatus: () => true });
-  if (res.status === 403) {
-    url = `${base}/#/address/${address}`;
-    res = await axios.get(url, { ...AXIOS_OPTS, validateStatus: () => true });
-  }
-  if (res.status !== 200) throw new Error(`Request failed with status code ${res.status}`);
-  return res.data;
 }
 
 function tryParseEmbeddedData(html) {
@@ -176,7 +215,7 @@ export async function fetchAndParseTronWallet(address, options = {}) {
   const trxPriceUsd = await getTrxUsd();
   let html;
   try {
-    html = await fetchAddressPage(trimmed);
+    html = await fetchAddressPageWithBrowser(trimmed);
   } catch (e) {
     return emptyTronResult();
   }

@@ -184,7 +184,22 @@ export async function addOrUpdateWalletTron(address, options = {}) {
     wallet.tronLastBlockTs = Math.max(Number(wallet.tronLastBlockTs) || 0, maxBlockTimestamp);
   }
   wallet.lastFetched = new Date();
-  await wallet.save();
+  try {
+    await wallet.save();
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.address) {
+      wallet = await Wallet.findOne({ address: normalized });
+      if (wallet) {
+        wallet.tronBalance = tronBalance;
+        wallet.tronValue = tronValue;
+        if (maxBlockTimestamp != null && maxBlockTimestamp > 0) {
+          wallet.tronLastBlockTs = Math.max(Number(wallet.tronLastBlockTs) || 0, maxBlockTimestamp);
+        }
+        wallet.lastFetched = new Date();
+        await wallet.save();
+      } else throw err;
+    } else throw err;
+  }
 
   const r1 = await saveTransactions(transactions, normalized, 'Tron');
   const r2 = await saveTransactions(tokenTransactions, normalized, 'Tron');
@@ -213,7 +228,19 @@ export async function addOrUpdateWalletBtc(address, options = {}) {
   wallet.btcBalance = btcBalance;
   wallet.btcValue = btcValue;
   wallet.lastFetched = new Date();
-  await wallet.save();
+  try {
+    await wallet.save();
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.address) {
+      wallet = await Wallet.findOne({ address: normalized });
+      if (wallet) {
+        wallet.btcBalance = btcBalance;
+        wallet.btcValue = btcValue;
+        wallet.lastFetched = new Date();
+        await wallet.save();
+      } else throw err;
+    } else throw err;
+  }
 
   const r1 = await saveTransactions(transactions, normalized, 'Bitcoin');
   const r2 = await saveTransactions(tokenTransactions, normalized, 'Bitcoin');
@@ -242,7 +269,19 @@ export async function addOrUpdateWalletLtc(address, options = {}) {
   wallet.ltcBalance = ltcBalance;
   wallet.ltcValue = ltcValue;
   wallet.lastFetched = new Date();
-  await wallet.save();
+  try {
+    await wallet.save();
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.address) {
+      wallet = await Wallet.findOne({ address: normalized });
+      if (wallet) {
+        wallet.ltcBalance = ltcBalance;
+        wallet.ltcValue = ltcValue;
+        wallet.lastFetched = new Date();
+        await wallet.save();
+      } else throw err;
+    } else throw err;
+  }
 
   const r1 = await saveTransactions(transactions, normalized, 'Litecoin');
   const r2 = await saveTransactions(tokenTransactions, normalized, 'Litecoin');
@@ -271,7 +310,19 @@ export async function addOrUpdateWalletSol(address, options = {}) {
   wallet.solBalance = solBalance;
   wallet.solValue = solValue;
   wallet.lastFetched = new Date();
-  await wallet.save();
+  try {
+    await wallet.save();
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.address) {
+      wallet = await Wallet.findOne({ address: normalized });
+      if (wallet) {
+        wallet.solBalance = solBalance;
+        wallet.solValue = solValue;
+        wallet.lastFetched = new Date();
+        await wallet.save();
+      } else throw err;
+    } else throw err;
+  }
 
   const r1 = await saveTransactions(transactions, normalized, 'Solana');
   const r2 = await saveTransactions(tokenTransactions, normalized, 'Solana');
